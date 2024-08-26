@@ -1,4 +1,4 @@
-D#include <cstdlib>
+#include <cstdlib>
 #include <iostream>
 #include <papi.h>
 
@@ -8,9 +8,14 @@ using std::endl;
 using std::exit;
 
 #define T (1024 * 1024)
-#define N 32 // Fits in 32KB L1 cache
-double A[N][N];
-
+#define N (4096)
+void init(uint32_t *mat, const int SIZE) {
+  for (int i = 0; i < SIZE; i++) {
+    for (int j = 0; j < SIZE; j++) {
+      mat[i * SIZE + j] = 1;
+    }
+  }
+}
 void handle_error(int retval) {
     cout << "PAPI error: " << retval << ": " << PAPI_strerror(retval) << "\n";
     exit(EXIT_FAILURE);
@@ -19,6 +24,15 @@ void handle_error(int retval) {
 int main() {
     int EventSet = PAPI_NULL;
     long long values[2];
+    int BLK=8;
+    uint32_t *A = new uint32_t[N * N];
+    uint32_t *B = new uint32_t[N * N];
+    uint32_t *C_blk = new uint32_t[N * N];
+
+    init(A, N);
+    init(B, N);
+    init(C_blk, N);
+
 
     // Initialize PAPI library
     if (PAPI_library_init(PAPI_VER_CURRENT) != PAPI_VER_CURRENT) {
@@ -59,13 +73,15 @@ int main() {
     }
 
     // Computation
-    for (int it = 0; it < T; it++) {
-        for (int j = 0; j < N; j++) {
-            for (int i = 0; i < N; i++) {
-                A[i][j] += 1;
-            }
+    for (int i = 0; i < SIZE; i++) {
+        for (int j = 0; j < SIZE; j++) {
+          uint32_t sum = 0.0;
+          for (int k = 0; k < SIZE; k++) {
+            sum += A[i * SIZE + k] * B[k * SIZE + j];
+          }
+          C[i * SIZE + j] += sum;
         }
-    }
+      }
 
     // Stop counting
     if (PAPI_stop(EventSet, values) != PAPI_OK) {
